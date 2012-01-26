@@ -243,16 +243,20 @@ if __name__ == '__main__':
     pid, options = parse_args()
     try:
         check_java(pid)
-        jstack = get_jstack(pid)
         segments = list(get_segments(get_smaps(pid)))
+        jstack = get_jstack(pid)
         associate_stack_segments(segments, pid, jstack, options.force_jpointers)
         classify(segments)
-        if options.summary:
-            print_summary(segments)
-        else:
-            if options.all: _filter = filters['all']
-            else: _filter = filters['rss_only']
-            fil_segments = [s for s in segments if _filter(s)]
-            print_segments(sorted(fil_segments, key = orders[options.order]), printing_all = options.all)
+        try:
+            if options.summary:
+                print_summary(segments)
+            else:
+                if options.all: _filter = filters['all']
+                else: _filter = filters['rss_only']
+                fil_segments = [s for s in segments if _filter(s)]
+                print_segments(sorted(fil_segments, key = orders[options.order]), printing_all = options.all)
+        except IOError, e:
+            if e.errno == 32: pass # ignoring broken pipe for sane shell use
+            else: raise
     except EnvironmentError, e:
         error_exit(e)
