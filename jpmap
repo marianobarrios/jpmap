@@ -124,8 +124,8 @@ def associate_stack_segments(segments, pid, jstack, force_jstack):
     stack_pointers = get_stack_pointers(pid)
     if len(stack_pointers) == 0 or force_jstack:
         # Old kernels do not put stack pointers in /proc. Resorting to pointers in jstack,
-        # although it misses some (in native threads). Those stacks will appear as [annon]
-        print >> stderr, 'WARN: Using java stack pointers, some stack segments will appear as annon'
+        # although it misses some (in native threads).
+        print >> stderr, 'WARN: Using java stack pointers, some stack segments will appear as anon'
         stack_pointers = get_stack_pointers_from_jstack(jstack)
     found_segments = {}
     for lwp, esp in stack_pointers.items():
@@ -161,7 +161,7 @@ def classify(segments):
             elif re.match('.*.so(.[0-9]+)*$', s.file): s.type = '[vmlib]'
             else: s.type = '[file]'
         else:
-            s.type = '[annon]'
+            s.type = '[anon]'
 
 def get_totals(segments):
     total_pss = sum(s.pss for s in segments)
