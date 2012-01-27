@@ -82,16 +82,9 @@ def get_smaps(pid):
 class JStackThread: pass
 
 def get_jstack(pid):
-    try:
-        child = Popen(['jstack', str(pid)], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-        stdout, stderr = child.communicate()
-        if child.returncode != 0:
-            raise EnvironmentError(child.returncode, stderr)
-    except OSError, e:
-        if e.errno == 2: raise EnvironmentError('Cannot execute jstack. Is it in the path?')
-        else: raise
+    jstack = run_command('jstack', [str(pid)])
     def thread_gen():
-        for line in stdout.split('\n'):
+        for line in jstack.split('\n'):
             mo = re.search(r'"([^"]+)".*tid=(0x[0-9a-f]+).*nid=(0x[0-9a-f]+)', line)
             if mo is not None:
                 jthread = JStackThread()
@@ -106,6 +99,17 @@ def get_jstack(pid):
                     if val != 0: jthread.esp = val
                 yield jthread
     return dict((jthread.nid, jthread) for jthread in thread_gen())
+
+def run_command(cmd, args):
+    try:
+        child = Popen([cmd] + args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        stdout, stderr = child.communicate()
+        if child.returncode != 0:
+            raise EnvironmentError(child.returncode, stderr)
+    except OSError, e:
+        if e.errno == 2: raise EnvironmentError('Cannot execute %s. Is it in the path?' % cmd)
+        else: raise
+    return stdout
 
 def get_segments(smaps_data):
     for header, sizes in smaps_data:
