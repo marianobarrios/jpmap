@@ -120,6 +120,8 @@ def get_segments(smaps_data):
         t.perms = header.perms
         yield t
 
+excluded_threads = ['CompilerThread0', 'VM Thread']
+
 def associate_stack_segments(segments, pid, jstack, force_jstack):
     stack_pointers = get_stack_pointers(pid)
     if len(stack_pointers) == 0 or force_jstack:
@@ -140,12 +142,15 @@ def associate_stack_segments(segments, pid, jstack, force_jstack):
     for s in segments:
         s.lwp = found_threads.get(s)
         jthread = jstack.get(s.lwp)
+        s.jvm_tid = None
+        s.thread_name = None
         if jthread is not None:
-            s.jvm_tid = jthread.tid 
-            s.thread_name = jthread.name
-        else:
-            s.jvm_tid = None
-            s.thread_name = None
+            if jthread.name in excluded_threads:
+                # Some threads are known to not have an exclusive stack segment
+                s.lwp = None
+            else:
+                s.jvm_tid = jthread.tid 
+                s.thread_name = jthread.name
 
 def get_stack_pointers_from_jstack(jthreads):
     return dict((lwp, jthread.esp) for lwp, jthread in jthreads.items())
