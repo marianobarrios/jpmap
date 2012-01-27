@@ -177,7 +177,7 @@ def get_totals(segments):
 
 def print_segments(segments, printing_all):
     print '%-16s %9s %9s %9s %10s %-6s %-10s %s' % \
-        ('START ADDR', 'PSS', 'RSS', 'DIRTY', 'VSIZE', 'PERMS', 'TYPE', 'FILE/THREAD')
+        ('START ADDRESS', 'PSS', 'RSS', 'DIRTY', 'VSIZE', 'PERMS', 'TYPE', 'FILE/THREAD')
     for seg in segments:
         if seg.type == '[stack]':
             if seg.jvm_tid is not None:
