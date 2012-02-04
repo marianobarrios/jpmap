@@ -36,8 +36,8 @@ def get_stack_pointers(pid):
                 else: raise
     return dict(task_stat_gen())
 
-class Header: pass
-class Segment: pass
+class Header(object): pass
+class Segment(object): pass
 
 def parse_map_header(parts):
     addr_range = parts[0]
@@ -63,7 +63,7 @@ def get_smaps(pid):
     curr_map = None
     curr_sizes = {}
     for line in maps.split('\n'):
-        if len(line) == 0: continue
+        if not line: continue
         parts = line.split()
         if len(parts) > 3:
             # Header line, a new mapping
