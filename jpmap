@@ -158,7 +158,10 @@ def get_smaps(pid):
     curr_map = None
     curr_sizes = {}
     for line in maps.split('\n'):
-        if not line: continue
+        if not line: 
+            continue
+        if line.startswith('VmFlags:'): 
+            continue
         parts = line.split()
         if len(parts) > 3:
             # Header line, a new mapping
