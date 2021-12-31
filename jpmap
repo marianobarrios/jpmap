@@ -29,7 +29,7 @@ class ProcessError(Exception):
 
 def attach_and_dump(pid):
     # If necessary, downgrade to JVM user and group, so it accepts the connection
-    stat = os.stat('/proc/%d' % pid)
+    stat = os.stat(f'/proc/{pid}')
     print_debug(f"Checking process user and group: {stat.st_uid},{stat.st_gid}")
     os.setgid(stat.st_gid)
     os.setuid(stat.st_uid)
@@ -249,13 +249,12 @@ def print_segments(segments, printing_all):
             detail = seg.file
         else:
             detail = ''
-        print('%016x %9d %9d %9d %10d %-6s %-10s %s' % \
-            (seg.start, seg.pss, seg.rss, seg.dirty, seg.vsize, seg.perms, seg.type, detail))
+        print(f'{seg.start:016x} {seg.pss:9d} {seg.rss:9d} {seg.dirty:9d} {seg.vsize:10d} {seg.perms:6s} {seg.type:10s} {detail}')
     t_pss, t_rss, t_dirty, t_vsize = get_totals(segments)
     print(f'{"TOTALS:":16s} {t_pss:9d} {t_rss:9d} {t_dirty:9d}')
     if printing_all:
         # Total virtual size only makes sense if printing all segments 
-        print(' %9d' % t_vsize)
+        print(f' {t_vsize:9d}')
     
 def print_summary(segments):
     pss_counter = {}
@@ -269,7 +268,7 @@ def print_summary(segments):
         vsize_counter[seg.type] = vsize_counter.setdefault(seg.type, 0) + seg.vsize
     print(f'{"TYPE":10s} {"PSS":>9s} {"RSS":>9s} {"DIRTY":>9s} {"VSIZE":>10s}')
     for stype, pss in sorted(pss_counter.items(), key = lambda pair: -pair[1]):
-        print('%-10s %9s %9s %9s %10s' % (stype, pss, rss_counter[stype], dirty_counter[stype], vsize_counter[stype]))
+        print(f'{stype:10s} {pss:9d} {rss_counter[stype]:9d} {dirty_counter[stype]:9d} {vsize_counter[stype]:10d}')
     t_pss, t_rss, t_dirty, t_vsize = get_totals(segments)
     print(f'{"TOTALS:":10s} {t_pss:9d} {t_rss:9d} {t_dirty:9d} {t_vsize:10d}')
       
