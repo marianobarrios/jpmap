@@ -5,7 +5,6 @@ import re
 import sys
 import socket
 import signal 
-import string
 import time
 from optparse import OptionParser
 
@@ -113,25 +112,6 @@ def read_all(sock):
             break
     return data
 
-def get_stack_pointers(pid):
-    max_addr = 2 ** os.sysconf('SC_LONG_BIT') - 1
-    lwp_list = os.listdir('/proc/%d/task' % pid)
-    def task_stat_gen():
-        for lwp in lwp_list:
-            try:
-                stat_data = open('/proc/%d/task/%s/stat' % (pid, lwp)).read()
-                # Position 29th in /proc/<pid>/task/<lwp>/stat is stack pointer
-                pointer = int(stat_data.split()[28])
-                # If stack pointer is absent, there is "-1", interpreted as unsigned, so equals max_addr
-                if pointer != max_addr:
-                    yield int(lwp), pointer
-            except IOError as e:
-                # Accounting for the fact that a thread can terminate between the moment we
-                # ask for the list (directory) and we try to read the file
-                if e.errno == 2: print_err('WARN: Missing task: %s' % lwp)
-                else: raise
-    return dict(task_stat_gen())
-
 class Header(object): pass
 class Segment(object): pass
 
@@ -195,7 +175,8 @@ def get_jstack(pid):
                 mo2 = re.search(r'\[(0x[0-9a-f]+)\]', line)
                 if mo2 is not None:
                     val = int(mo2.group(1), 16)
-                    if val != 0: jthread.esp = val
+                    if val != 0: 
+                        jthread.esp = val
                 yield jthread
     return dict((jthread.nid, jthread) for jthread in thread_gen())
 
@@ -212,15 +193,8 @@ def get_segments(smaps_data):
         t.perms = header.perms
         yield t
 
-excluded_threads = ['CompilerThread0', 'VM Thread']
-
-def associate_stack_segments(segments, pid, jstack, force_jstack):
-    stack_pointers = get_stack_pointers(pid)
-    if len(stack_pointers) == 0 or force_jstack:
-        # Old kernels do not put stack pointers in /proc. Resorting to pointers in jstack,
-        # although it misses some (in native threads).
-        print_err('WARN: Using java stack pointers, some stack segments will appear as anon')
-        stack_pointers = get_stack_pointers_from_jstack(jstack)
+def associate_stack_segments(segments, pid, jstack):
+    stack_pointers = get_stack_pointers_from_jstack(jstack)
     found_segments = {}
     for lwp, esp in stack_pointers.items():
         found_seg = None        
@@ -237,12 +211,8 @@ def associate_stack_segments(segments, pid, jstack, force_jstack):
         s.jvm_tid = None
         s.thread_name = None
         if jthread is not None:
-            if jthread.name in excluded_threads:
-                # Some threads are known to not have an exclusive stack segment
-                s.lwp = None
-            else:
-                s.jvm_tid = jthread.tid 
-                s.thread_name = jthread.name
+            s.jvm_tid = jthread.tid 
+            s.thread_name = jthread.name
 
 def get_stack_pointers_from_jstack(jthreads):
     return dict((lwp, jthread.esp) for lwp, jthread in jthreads.items())
@@ -327,9 +297,6 @@ def parse_args():
     parser.add_option("-o", dest = "order", type = 'choice',  default = 'pss', 
         help = 'sort by ORDER; valid options: pss, rss, dirty, vsize, addr; default: %default', 
         choices = ['pss', 'addr', 'rss', 'dirty', 'vsize'])
-    parser.add_option("--use-java-pointers", dest = "force_jpointers", action = 'store_true', default = False, 
-        help = 'force the use of jstack to obtain stack pointers for stack segment mapping (default is to ' +
-        'use /proc filesystem if possible)')
     parser.add_option('-v', action = 'store_true', dest = 'verbose', help = "activate verbose mode")
     options, args = parser.parse_args()
     if len(args) != 1:
@@ -346,7 +313,7 @@ if __name__ == '__main__':
         check_java(pid)
         segments = list(get_segments(get_smaps(pid)))
         jstack = get_jstack(pid)
-        associate_stack_segments(segments, pid, jstack, options.force_jpointers)
+        associate_stack_segments(segments, pid, jstack)
         classify(segments)
         try:
             if options.summary:
