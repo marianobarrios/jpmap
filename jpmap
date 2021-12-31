@@ -16,13 +16,13 @@ def print_debug(string):
         print_err(string)
 
 def error_exit(msg):
-    print_err('%s: %s' % (sys.argv[0], msg))
+    print_err(f'{sys.argv[0]}: {msg}')
     sys.exit(1)
     
 def check_java(pid):
-    comm = open('/proc/%d/stat' % pid).read().split()[1]
+    comm = open(f'/proc/{pid}/stat').read().split()[1]
     if comm != '(java)': 
-        error_exit('%d %s - Not a Java process' % (pid, comm))
+        error_exit(f'{pid} {comm} - Not a Java process')
 
 class ProcessError(Exception):
     pass
@@ -30,7 +30,7 @@ class ProcessError(Exception):
 def attach_and_dump(pid):
     # If necessary, downgrade to JVM user and group, so it accepts the connection
     stat = os.stat('/proc/%d' % pid)
-    print_debug("Checking process user and group: %s,%s" % (stat.st_uid, stat.st_gid))
+    print_debug(f"Checking process user and group: {stat.st_uid},{stat.st_gid}")
     os.setgid(stat.st_gid)
     os.setuid(stat.st_uid)
     socket = socket_path(pid)
@@ -39,13 +39,13 @@ def attach_and_dump(pid):
     return dump(socket)
     
 def socket_path(pid): 
-    path = '/tmp/.java_pid%d' % pid
-    print_debug("Socket path: %s" % path)
+    path = f'/tmp/.java_pid{pid}'
+    print_debug(f"Socket path: {path}")
     return path
             
 def start_server(pid, socket):
     print_debug("Socket file does not exist. Asking process to start server...")
-    touch('/proc/%d/cwd/.attach_pid%d' % (pid, pid))
+    touch(f'/proc/{pid}/cwd/.attach_pid{pid}')
     os.kill(pid, signal.SIGQUIT)
     if not wait_for_existence(socket, wait = 0.05, timeout = 1):
         raise ProcessError('Cannot attach: JVM not responding (or not a Java process)')
@@ -57,7 +57,7 @@ def touch(path):
     finally: f.close()
    
 def wait_for_existence(path, wait, timeout):
-    print_debug("Waiting for existence of %s..." % path)
+    print_debug(f"Waiting for existence of {path}...")
     t = 0
     while t < timeout:
         if exists(path):
@@ -65,7 +65,7 @@ def wait_for_existence(path, wait, timeout):
         else:
             t += wait
             time.sleep(wait)
-    print_debug("Wait timed out after %.2f seconds" % timeout) 
+    print_debug(f"Wait timed out after {timeout:.2f} seconds")
     return False
 
 def exists(path):
@@ -92,7 +92,7 @@ def dump(socket_file):
         print_debug("Asked for dump, waiting for reply...")
         res = read_all(sock)
         status, dump = res.split("\n", 1)
-        print_debug("Reply read. Status: %s." % status)
+        print_debug(f"Reply read. Status: {status}.")
         if status != "0":
             raise Exception("Invalid status: " + status)
         return dump
@@ -134,7 +134,7 @@ def parse_size(parts):
     return name, int(size)
 
 def get_smaps(pid):
-    maps = open('/proc/%d/smaps' % pid).read()
+    maps = open(f'/proc/{pid}/smaps').read()
     res = []
     curr_map = None
     curr_sizes = {}
@@ -238,14 +238,13 @@ def get_totals(segments):
     return total_pss, total_rss, total_dirty, total_vsize
 
 def print_segments(segments, printing_all):
-    print('%-16s %9s %9s %9s %10s %-6s %-10s %s' % \
-        ('START ADDRESS', 'PSS', 'RSS', 'DIRTY', 'VSIZE', 'PERMS', 'TYPE', 'FILE/THREAD'))
+    print(f'{"START ADDRESS":16s} {"PSS":>9s} {"RSS":>9s} {"DIRTY":>9s} {"VSIZE":>10s} {"PERMS":6s} {"TYPE":10s} FILE/THREAD')
     for seg in segments:
         if seg.type == '[stack]':
             if seg.jvm_tid is not None:
-                detail = '"%s" lwp=%d jvm_id=%#x' % (seg.thread_name, seg.lwp, seg.jvm_tid)
+                detail = f'"{seg.thread_name}" lwp={seg.lwp} jvm_id={seg.jvm_tid:#x}'
             else:
-                detail = '<non-java thread> pid=%s' % seg.lwp
+                detail = f'<non-java thread> pid={seg.lwp}'
         elif seg.type in ['[jlib]', '[vmlib]', '[file]', '[exec]']:
             detail = seg.file
         else:
@@ -253,7 +252,7 @@ def print_segments(segments, printing_all):
         print('%016x %9d %9d %9d %10d %-6s %-10s %s' % \
             (seg.start, seg.pss, seg.rss, seg.dirty, seg.vsize, seg.perms, seg.type, detail))
     t_pss, t_rss, t_dirty, t_vsize = get_totals(segments)
-    print('%-16s %9d %9d %9d' % ('TOTALS:', t_pss, t_rss, t_dirty))
+    print(f'{"TOTALS:":16s} {t_pss:9d} {t_rss:9d} {t_dirty:9d}')
     if printing_all:
         # Total virtual size only makes sense if printing all segments 
         print(' %9d' % t_vsize)
@@ -268,11 +267,11 @@ def print_summary(segments):
         rss_counter[seg.type] = rss_counter.setdefault(seg.type, 0) + seg.rss
         dirty_counter[seg.type] = dirty_counter.setdefault(seg.type, 0) + seg.dirty
         vsize_counter[seg.type] = vsize_counter.setdefault(seg.type, 0) + seg.vsize
-    print('%-10s %9s %9s %9s %10s' % ('TYPE', 'PSS', 'RSS', 'DIRTY', 'VSIZE'))
+    print(f'{"TYPE":10s} {"PSS":>9s} {"RSS":>9s} {"DIRTY":>9s} {"VSIZE":>10s}')
     for stype, pss in sorted(pss_counter.items(), key = lambda pair: -pair[1]):
         print('%-10s %9s %9s %9s %10s' % (stype, pss, rss_counter[stype], dirty_counter[stype], vsize_counter[stype]))
     t_pss, t_rss, t_dirty, t_vsize = get_totals(segments)
-    print('%-10s %9d %9d %9d %10d' % ('TOTALS:', t_pss, t_rss, t_dirty, t_vsize))
+    print(f'{"TOTALS:":10s} {t_pss:9d} {t_rss:9d} {t_dirty:9d} {t_vsize:10d}')
       
 orders = {
     'addr':   lambda s: s.start,
