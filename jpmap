@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import os
 import re
@@ -9,7 +9,8 @@ import string
 import time
 from optparse import OptionParser
 
-def print_err(string): print >> sys.stderr, string
+def print_err(msg): 
+    print(msg, file=sys.stderr)
 
 def print_debug(string): 
     if verbose:
@@ -91,7 +92,7 @@ def dump(socket_file):
             send_string(sock, arg)
         print_debug("Asked for dump, waiting for reply...")
         res = read_all(sock)
-        status, dump = string.split(res, "\n", 1)
+        status, dump = res.split("\n", 1)
         print_debug("Reply read. Status: %s." % status)
         if status != "0":
             raise Exception("Invalid status: " + status)
@@ -100,12 +101,12 @@ def dump(socket_file):
         sock.close()
         
 def send_string(sock, string):
-    sock.sendall(string + '\0')
+    sock.sendall((string + '\0').encode('ASCII'))
 
 def read_all(sock):
     data = ''
     while True:
-        ret = sock.recv(4096)
+        ret = sock.recv(4096).decode("ASCII")
         if ret:
             data += ret
         else:
@@ -124,7 +125,7 @@ def get_stack_pointers(pid):
                 # If stack pointer is absent, there is "-1", interpreted as unsigned, so equals max_addr
                 if pointer != max_addr:
                     yield int(lwp), pointer
-            except IOError, e:
+            except IOError as e:
                 # Accounting for the fact that a thread can terminate between the moment we
                 # ask for the list (directory) and we try to read the file
                 if e.errno == 2: print_err('WARN: Missing task: %s' % lwp)
@@ -267,8 +268,8 @@ def get_totals(segments):
     return total_pss, total_rss, total_dirty, total_vsize
 
 def print_segments(segments, printing_all):
-    print '%-16s %9s %9s %9s %10s %-6s %-10s %s' % \
-        ('START ADDRESS', 'PSS', 'RSS', 'DIRTY', 'VSIZE', 'PERMS', 'TYPE', 'FILE/THREAD')
+    print('%-16s %9s %9s %9s %10s %-6s %-10s %s' % \
+        ('START ADDRESS', 'PSS', 'RSS', 'DIRTY', 'VSIZE', 'PERMS', 'TYPE', 'FILE/THREAD'))
     for seg in segments:
         if seg.type == '[stack]':
             if seg.jvm_tid is not None:
@@ -279,13 +280,13 @@ def print_segments(segments, printing_all):
             detail = seg.file
         else:
             detail = ''
-        print '%016x %9d %9d %9d %10d %-6s %-10s %s' % \
-            (seg.start, seg.pss, seg.rss, seg.dirty, seg.vsize, seg.perms, seg.type, detail)
+        print('%016x %9d %9d %9d %10d %-6s %-10s %s' % \
+            (seg.start, seg.pss, seg.rss, seg.dirty, seg.vsize, seg.perms, seg.type, detail))
     t_pss, t_rss, t_dirty, t_vsize = get_totals(segments)
-    print '%-16s %9d %9d %9d' % ('TOTALS:', t_pss, t_rss, t_dirty),
+    print('%-16s %9d %9d %9d' % ('TOTALS:', t_pss, t_rss, t_dirty))
     if printing_all:
         # Total virtual size only makes sense if printing all segments 
-        print ' %9d' % t_vsize
+        print(' %9d' % t_vsize)
     
 def print_summary(segments):
     pss_counter = {}
@@ -297,11 +298,11 @@ def print_summary(segments):
         rss_counter[seg.type] = rss_counter.setdefault(seg.type, 0) + seg.rss
         dirty_counter[seg.type] = dirty_counter.setdefault(seg.type, 0) + seg.dirty
         vsize_counter[seg.type] = vsize_counter.setdefault(seg.type, 0) + seg.vsize
-    print '%-10s %9s %9s %9s %10s' % ('TYPE', 'PSS', 'RSS', 'DIRTY', 'VSIZE')
-    for stype, pss in sorted(pss_counter.items(), key = lambda (x, y): -y):
-        print '%-10s %9s %9s %9s %10s' % (stype, pss, rss_counter[stype], dirty_counter[stype], vsize_counter[stype])
+    print('%-10s %9s %9s %9s %10s' % ('TYPE', 'PSS', 'RSS', 'DIRTY', 'VSIZE'))
+    for stype, pss in sorted(pss_counter.items(), key = lambda pair: -pair[1]):
+        print('%-10s %9s %9s %9s %10s' % (stype, pss, rss_counter[stype], dirty_counter[stype], vsize_counter[stype]))
     t_pss, t_rss, t_dirty, t_vsize = get_totals(segments)
-    print '%-10s %9d %9d %9d %10d' % ('TOTALS:', t_pss, t_rss, t_dirty, t_vsize)
+    print('%-10s %9d %9d %9d %10d' % ('TOTALS:', t_pss, t_rss, t_dirty, t_vsize))
       
 orders = {
     'addr':   lambda s: s.start,
@@ -355,8 +356,8 @@ if __name__ == '__main__':
                 else: _filter = filters['rss_only']
                 fil_segments = [s for s in segments if _filter(s)]
                 print_segments(sorted(fil_segments, key = orders[options.order]), printing_all = options.all)
-        except IOError, e:
+        except IOError as e:
             if e.errno == 32: pass # ignoring broken pipe for sane shell use
             else: raise
-    except EnvironmentError, e:
+    except EnvironmentError as e:
         error_exit(e)
