@@ -225,7 +225,7 @@ def associate_stack_segments(segments, pid, jstack, force_jstack):
     for lwp, esp in stack_pointers.items():
         found_seg = None        
         for seg in segments:
-            if esp >= seg.start and esp < seg.end:
+            if esp != None and esp >= seg.start and esp < seg.end:
                 found_seg = seg
                 break
         if found_seg is not None:
