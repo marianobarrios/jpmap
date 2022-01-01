@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import re
 import sys
@@ -305,7 +303,7 @@ def parse_args():
 
 verbose = None
     
-if __name__ == '__main__':
+def main():
     pid, options = parse_args()
     verbose = options.verbose
     try:
