@@ -286,7 +286,7 @@ filters = {
 
 def parse_args():
     parser = OptionParser('usage: %prog [options] pid\n' + 
-        'Print memory segments, similarly to pmap, but include information about java threads')
+        'Print memory segments, similarly to pmap, but include information about Java threads')
     parser.add_option("-s", "--summary", action = "store_true", dest = "summary", default = False, 
         help = "summarise display with only a total for each segment type")
     parser.add_option("-a", "--all", action = "store_true", dest = "all", default = False, 
@@ -297,7 +297,7 @@ def parse_args():
     parser.add_option('-v', action = 'store_true', dest = 'verbose', help = "activate verbose mode")
     options, args = parser.parse_args()
     if len(args) != 1:
-        parser.error('A java pid must be supplied')
+        parser.error('A Java pid must be supplied')
     pid = int(args[0])
     return pid, options
 

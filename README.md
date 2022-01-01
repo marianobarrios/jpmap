@@ -2,6 +2,10 @@
 
 Jpmap is an alternative to Linux's pmap command by Albert Cahalan, augmented for Java Virtual Machine processes. Besides the usual pmap output, jpmap adds information about stack segments. It uses stack pointers from the Java thread dump to map threads with their stack segments, and to show additional information about them.
 
+## Installation
+
+`pip install git+https://github.com/marianobarrios/jpmap.git`
+
 ## Sample output
 
 	$ jpmap <pid>
