@@ -9,7 +9,7 @@ use_plugin("python.distutils")
 name = "jpmap"
 default_task = "publish"
 
+
 @init
 def set_properties(project):
-    pass
-    #project.set_property('flake8_break_build', True)
+    project.set_property('flake8_break_build', True)
