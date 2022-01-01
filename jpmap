@@ -133,12 +133,11 @@ def parse_size(parts):
     size = parts[1]
     return name, int(size)
 
-def get_smaps(pid):
-    maps = open(f'/proc/{pid}/smaps').read()
-    res = []
+def parse_smaps(smaps):
+    headers = []
     curr_map = None
     curr_sizes = {}
-    for line in maps.split('\n'):
+    for line in smaps.split('\n'):
         if not line: 
             continue
         if line.startswith('VmFlags:'): 
@@ -147,7 +146,7 @@ def get_smaps(pid):
         if len(parts) > 3:
             # Header line, a new mapping
             if curr_map is not None: 
-                res.append((curr_map, curr_sizes))
+                headers.append((curr_map, curr_sizes))
                 curr_sizes = {} 
             curr_map = parse_map_header(parts)
         else:
@@ -155,15 +154,25 @@ def get_smaps(pid):
             category, size = parse_size(parts)
             curr_sizes[category] = size
     if curr_map is not None: 
-        res.append((curr_map, curr_sizes))
-    return res
+        headers.append((curr_map, curr_sizes))
+
+    for header, sizes in headers:
+        t = Segment()
+        t.start = header.start
+        t.end = header.end
+        t.vsize = sizes['Size']
+        t.rss = sizes['Rss']
+        t.pss = sizes['Pss']
+        t.dirty = sizes['Private_Dirty'] + sizes['Shared_Dirty'] 
+        t.file = header.file
+        t.perms = header.perms
+        yield t
 
 class JStackThread: pass
 
-def get_jstack(pid):
-    jstack = attach_and_dump(pid)
+def parse_jstack(jstack_str):
     def thread_gen():
-        for line in jstack.split('\n'):
+        for line in jstack_str.split('\n'):
             mo = re.search(r'"([^"]+)".*tid=(0x[0-9a-f]+).*nid=(0x[0-9a-f]+)', line)
             if mo is not None:
                 jthread = JStackThread()
@@ -179,21 +188,8 @@ def get_jstack(pid):
                         jthread.esp = val
                 yield jthread
     return dict((jthread.nid, jthread) for jthread in thread_gen())
-
-def get_segments(smaps_data):
-    for header, sizes in smaps_data:
-        t = Segment()
-        t.start = header.start
-        t.end = header.end
-        t.vsize = sizes['Size']
-        t.rss = sizes['Rss']
-        t.pss = sizes['Pss']
-        t.dirty = sizes['Private_Dirty'] + sizes['Shared_Dirty'] 
-        t.file = header.file
-        t.perms = header.perms
-        yield t
-
-def associate_stack_segments(segments, pid, jstack):
+    
+def associate_stack_segments(segments, jstack):
     stack_pointers = get_stack_pointers_from_jstack(jstack)
     found_segments = {}
     for lwp, esp in stack_pointers.items():
@@ -314,10 +310,17 @@ if __name__ == '__main__':
     verbose = options.verbose
     try:
         check_java(pid)
-        segments = list(get_segments(get_smaps(pid)))
-        jstack = get_jstack(pid)
-        associate_stack_segments(segments, pid, jstack)
+
+        # do racy data collection as close as possible to each other
+        jstack_str = attach_and_dump(pid)
+        smaps_str = open(f'/proc/{pid}/smaps').read()
+
+        stacks = parse_jstack(jstack_str)
+        segments = list(parse_smaps(smaps_str))
+
+        associate_stack_segments(segments, stacks)
         classify(segments)
+
         try:
             if options.summary:
                 print_summary(segments)
