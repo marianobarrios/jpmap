@@ -1,12 +1,8 @@
-JPMAP
-=====
+# JPMAP
 
-Jpmap is an alternative to Linux's pmap command by Albert Cahalan, augmented for Java Virtual Machine processes.
-Besides the usual pmap output, jpmap adds information about stack segments. It uses stack pointers from /proc 
-directory to map threads with their stack segments, and uses jstack to show additional information about them.
+Jpmap is an alternative to Linux's pmap command by Albert Cahalan, augmented for Java Virtual Machine processes. Besides the usual pmap output, jpmap adds information about stack segments. It uses stack pointers from the Java thread dump to map threads with their stack segments, and to show additional information about them.
 
-Sample output
--------------
+## Sample output
 
 	$ jpmap <pid>
 	START ADDRESS          PSS       RSS     DIRTY      VSIZE PERMS  TYPE       FILE/THREAD
@@ -44,3 +40,6 @@ Sample output
 	[jlib]             0         0         0       2844
 	TOTALS:       101266    102276     98544     704312
 
+## `/proc` implementation
+
+In previous version of this tool, stack pointers were also obtained for the `stat` file in the `proc` filesystem. That had the advantage of also providing pointers for native threads. However [that functionality was removed](https://lore.kernel.org/lkml/20160912152203.052491949@linuxfoundation.org/) from recent kernels because it was not reliable in the end.
